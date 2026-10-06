@@ -76,58 +76,38 @@ jobs:
           echo "========================================"
           echo "Applying SUSFS kernel patch"
           echo "========================================"
-      
-          set +e
-          patch -p1 \
-            < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
-          PATCH_STATUS=$?
-          set -e
-      
-          echo "========================================"
-          echo "Dump namespace patch reject"
-          echo "========================================"
-      
-          if [ -f fs/namespace.c.rej ]; then
-            echo "===== fs/namespace.c.rej ====="
-            cat fs/namespace.c.rej
-          else
-            echo "No namespace.c.rej"
-          fi
-      
-          echo "===== namespace.c diff ====="
-          git diff -- fs/namespace.c | head -1500
-      
-          exit "${PATCH_STATUS}"
+          patch --forward -p1 < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
+          
           echo "========================================"
           echo "Applying SUSFS patch to SukiSU"
           echo "========================================"
           cd /tmp/SukiSU-Ultra/kernel
           patch -p1 < /tmp/susfs4ksu/kernel_patches/10_enable_susfs_for_ksu.patch
           cd "$GITHUB_WORKSPACE/kernel_source"
-
+          
           echo "========================================"
           echo "SUSFS integration completed"
           echo "========================================"
-
           echo "--- SUSFS source ---"
           test -f fs/susfs.c
           ls -l fs/susfs.c
-
+          
           echo "--- SUSFS headers ---"
           ls -l include/linux/susfs*.h
-
+          
           echo "--- Kernel Makefile ---"
           grep -n "susfs.o" fs/Makefile
-
+          
           echo "--- SukiSU Kconfig ---"
           grep -n "KSU_SUSFS" drivers/kernelsu/Kconfig | head -30 || true
-
+          
           echo "--- SukiSU source ---"
           grep -Rns "KSU_SUSFS" drivers/kernelsu --include='*.c' --include='*.h' --include='Kconfig' --include='Makefile' | head -50 || true
-
+          
           echo "========================================"
           echo "SUSFS integration completed"
           echo "========================================"
+
 
       # 5. 构建集成内核
       - name: Build Integrated Kernel
