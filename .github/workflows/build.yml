@@ -76,8 +76,28 @@ jobs:
           echo "========================================"
           echo "Applying SUSFS kernel patch"
           echo "========================================"
-          patch --forward -p1 < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
-
+      
+          set +e
+          patch -p1 \
+            < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
+          PATCH_STATUS=$?
+          set -e
+      
+          echo "========================================"
+          echo "Dump namespace patch reject"
+          echo "========================================"
+      
+          if [ -f fs/namespace.c.rej ]; then
+            echo "===== fs/namespace.c.rej ====="
+            cat fs/namespace.c.rej
+          else
+            echo "No namespace.c.rej"
+          fi
+      
+          echo "===== namespace.c diff ====="
+          git diff -- fs/namespace.c | head -1500
+      
+          exit "${PATCH_STATUS}"
           echo "========================================"
           echo "Applying SUSFS patch to SukiSU"
           echo "========================================"
