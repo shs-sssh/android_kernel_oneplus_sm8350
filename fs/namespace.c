@@ -964,23 +964,27 @@ static struct mount *skip_mnt_tree(struct mount *p)
 struct vfsmount *vfs_create_mount(struct fs_context *fc)
 {
 	struct mount *mnt;
-	struct super_block *sb;
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	struct mount *m;
+	struct mnt_namespace *mnt_ns;
+	int mnt_id;
+#endif
 
+	struct super_block *sb;
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	// For newly created mounts, the only caller process we care is KSU
+	if (unlikely(susfs_is_current_ksu_domain())) {
+		mnt = alloc_vfsmnt(name, true, 0);
+		goto bypass_orig_flow;
+	}
+	mnt = alloc_vfsmnt(name, false, 0);
+bypass_orig_flow:
+#else
+	mnt = alloc_vfsmnt(fc->source ?: "none");
+#endif
 	if (!fc->root)
 	    return ERR_PTR(-EINVAL);
 	sb = fc->root->d_sb;
-	
-	#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-	// For newly created mounts, the only caller process we care is KSU
-	if (unlikely(susfs_is_current_ksu_domain())) {
-	    mnt = alloc_vfsmnt(fc->source ?: "none", true, 0);
-	    goto bypass_orig_flow;
-	}
-	mnt = alloc_vfsmnt(fc->source ?: "none", false, 0);
-	bypass_orig_flow:
-	#else
-	mnt = alloc_vfsmnt(fc->source ?: "none");
-	#endif
 	
 	if (!mnt)
 	    return ERR_PTR(-ENOMEM);
@@ -3482,6 +3486,7 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 	// Always let clone_mnt() in copy_tree() know it is from copy_mnt_ns()
 	copy_flags |= CL_COPY_MNT_NS;
 #endif
+
 	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
 	if (IS_ERR(new)) {
 		namespace_unlock();
