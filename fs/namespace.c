@@ -3,6 +3,7 @@
  * (C) Copyright Al Viro 2000, 2001
  * Based on code from fs/super.c, copyright Linus Torvalds and others.
  * Heavily rewritten.*/
+
 #include <linux/syscalls.h>
 #include <linux/export.h>
 #include <linux/capability.h>
@@ -57,7 +58,6 @@ bool susfs_is_auto_add_sus_bind_mount_enabled = true;
 extern void susfs_auto_add_try_umount_for_bind_mount(struct path *path);
 bool susfs_is_auto_add_try_umount_for_bind_mount_enabled = true;
 #endif
-
 /* Maximum number of mounts in a mount namespace */
 unsigned int sysctl_mount_max __read_mostly = 100000;
 
