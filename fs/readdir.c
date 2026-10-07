@@ -313,12 +313,14 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
 	struct linux_dirent64 __user *dirent, *prev;
 	struct getdents_callback64 *buf =
 		container_of(ctx, struct getdents_callback64, ctx);
+	
 	int reclen = ALIGN(offsetof(struct linux_dirent64, d_name) + namlen + 1,
 		sizeof(u64));
 	int prev_reclen;
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
 		return buf->error;
+	
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
@@ -357,6 +359,7 @@ int ksys_getdents64(unsigned int fd, struct linux_dirent64 __user *dirent,
 	struct getdents_callback64 buf = {
 		.ctx.actor = filldir64,
 		.count = count,
+	
 		.current_dir = dirent
 	};
 	int error;
@@ -501,12 +504,14 @@ static int compat_filldir(struct dir_context *ctx, const char *name, int namlen,
 	if (dirent) {
 		if (signal_pending(current))
 			return -EINTR;
+		
 		if (__put_user(offset, &dirent->d_off))
 			goto efault;
 	}
 	dirent = buf->current_dir;
 	if (__put_user(d_ino, &dirent->d_ino))
 		goto efault;
+	
 	if (__put_user(reclen, &dirent->d_reclen))
 		goto efault;
 	if (copy_to_user(dirent->d_name, name, namlen))
