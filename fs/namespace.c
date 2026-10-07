@@ -936,7 +936,6 @@ static struct mount *skip_mnt_tree(struct mount *p)
 struct vfsmount *vfs_create_mount(struct fs_context *fc)
 {
 	struct mount *mnt;
-
 	struct super_block *sb;
 
 	if (!fc->root)
@@ -983,9 +982,7 @@ struct vfsmount *fc_mount(struct fs_context *fc)
 }
 EXPORT_SYMBOL(fc_mount);
 
-struct vfsmount *vfs_kern_mount(struct file_system_type *type,
-				int flags, const char *name,
-				void *data)
+struct vfsmount *vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)
 {
 	struct fs_context *fc;
 	struct vfsmount *mnt;
