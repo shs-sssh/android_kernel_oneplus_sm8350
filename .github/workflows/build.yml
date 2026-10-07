@@ -78,7 +78,7 @@ jobs:
           echo "========================================"
           cd "$GITHUB_WORKSPACE/kernel_source"
           find . -type f \( -name "*.rej" -o -name "*.orig" \) -delete
-          patch --forward -p1 < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
+          patch -p1 < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
 
           echo "========================================"
           echo "Verifying SUSFS integration"
