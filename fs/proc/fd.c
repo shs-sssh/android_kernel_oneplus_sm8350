@@ -16,8 +16,8 @@
 
 #include "../mount.h"
 #include "internal.h"
-#include "fd.h"
 
+#include "fd.h"
 static int seq_show(struct seq_file *m, void *v)
 {
 	struct files_struct *files = NULL;
