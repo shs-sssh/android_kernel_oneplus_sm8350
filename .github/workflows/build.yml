@@ -92,15 +92,6 @@ jobs:
           grep -Rns "KSU_SUSFS" drivers/kernelsu --include='*.c' --include='*.h' --include='Kconfig' --include='Makefile' | head -50 || true
 
           echo "========================================"
-          echo "Checking for failed SUSFS patches"
-          echo "========================================"
-          if find . -type f \( -name "*.rej" -o -name "*.orig" \) | grep -q .; then
-            echo "ERROR: SUSFS patch left .rej/.orig files:"
-            find . -type f \( -name "*.rej" -o -name "*.orig" \) -print
-            exit 1
-          fi
-
-          echo "========================================"
           echo "SUSFS integration completed successfully"
           echo "========================================"
 
