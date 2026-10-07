@@ -34,7 +34,6 @@
 	unsafe_copy_to_user(dst, src, len, label);		\
 } while (0)
 
-
 int iterate_dir(struct file *file, struct dir_context *ctx)
 {
 	struct inode *inode = file_inode(file);
