@@ -1030,7 +1030,8 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
     struct super_block *sb = old->mnt.mnt_sb;
     struct mount *mnt;
  	int err;
- 
+
+	mnt = alloc_vfsmnt(old->mnt_devname);
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
 
@@ -1061,7 +1062,6 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	mnt->mnt.mnt_root = dget(root);
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
 	mnt->mnt_parent = mnt;
-
 	lock_mount_hash();
 	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
 	unlock_mount_hash();
