@@ -298,8 +298,7 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 	return error;
 }
 
-struct getdents_callback64 
-{
+struct getdents_callback64 {
 	struct dir_context ctx;
 	struct linux_dirent64 __user * current_dir;
 	int prev_reclen;
