@@ -78,11 +78,9 @@ jobs:
           echo "========================================"
           cd "$GITHUB_WORKSPACE/kernel_source"
           find . -type f \( -name "*.rej" -o -name "*.orig" \) -delete
-
-          sed -i '/file_inode(file)->i_ino);/d' fs/proc/fd.c
           
           set +e
-          patch -p1 < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
+          patch -p1 --ignore-whitespace < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
           PATCH_STATUS=$?
           set -e
 
