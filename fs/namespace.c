@@ -941,7 +941,8 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
 	if (!fc->root)
 	    return ERR_PTR(-EINVAL);
 	sb = fc->root->d_sb;
-	
+
+	mnt = alloc_vfsmnt(name);
 	if (!mnt)
 	    return ERR_PTR(-ENOMEM);
 
