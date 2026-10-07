@@ -207,7 +207,8 @@ struct linux_dirent {
 	char		d_name[1];
 };
 
-struct getdents_callback {
+struct getdents_callback 
+{
 	struct dir_context ctx;
 	struct linux_dirent __user * current_dir;
 	int prev_reclen;
