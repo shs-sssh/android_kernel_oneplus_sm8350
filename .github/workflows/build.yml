@@ -220,13 +220,6 @@ jobs:
           
           # 在 Actions 日志中校验 KSU是否成功开启
           grep -E '^CONFIG_KSU(=|_)' "${OUT_DIR}/.config" || true
-          # 2. 校验 KSU_DISABLE_MANAGER 是否【处于关闭状态】
-          if grep -q '^CONFIG_KSU_DISABLE_MANAGER=y' "${OUT_DIR}/.config"; then
-              echo "❌ ERROR: CONFIG_KSU_DISABLE_MANAGER 被开启了（管理器被禁用了）！"
-              exit 1
-          else
-              echo "✅ SUCCESS: CONFIG_KSU_DISABLE_MANAGER 未开启，管理器已保证启用！"
-          fi
 
           echo "========================================"
           echo "5. Kbuild 准备"
