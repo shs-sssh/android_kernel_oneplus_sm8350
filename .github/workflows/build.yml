@@ -78,7 +78,7 @@ jobs:
           echo "========================================"
           cd /tmp/SukiSU-Ultra/kernel
           find . -type f \( -name "*.rej" -o -name "*.orig" \) -delete
-          patch --forward -p1 < /tmp/susfs4ksu/kernel_patches/10_enable_susfs_for_ksu.patch
+          patch --forward -p1 < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
 
           echo "========================================"
           echo "Applying SUSFS kernel patch"
