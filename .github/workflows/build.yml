@@ -78,7 +78,24 @@ jobs:
           echo "========================================"
           cd "$GITHUB_WORKSPACE/kernel_source"
           find . -type f \( -name "*.rej" -o -name "*.orig" \) -delete
+          
+          set +e
           patch -p1 < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
+          PATCH_STATUS=$?
+          set -e
+          
+          echo "========================================"
+          echo "Applying SUSFS kernel patch"
+          echo "========================================"
+
+          set +e
+          patch -p1 < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
+          PATCH_STATUS=$?
+          set -e
+
+          echo "========================================"
+          echo "PATCH EXIT CODE: $PATCH_STATUS"
+          echo "========================================"
 
           echo "========================================"
           echo "DEBUG: fs/proc/fd.c.rej"
@@ -86,7 +103,20 @@ jobs:
           if [ -f fs/proc/fd.c.rej ]; then
             cat fs/proc/fd.c.rej
           else
-            echo "No fs/proc/fd.c.rej"
+            echo "fs/proc/fd.c.rej does not exist"
+          fi
+
+          echo "========================================"
+          echo "DEBUG: fs/proc/fd.c"
+          echo "========================================"
+          sed -n '50,80p' fs/proc/fd.c
+
+          echo "========================================"
+          echo "DEBUG: patch status"
+          echo "========================================"
+          if [ "$PATCH_STATUS" -ne 0 ]; then
+            echo "SUSFS patch failed"
+            exit "$PATCH_STATUS"
           fi
 
           echo "========================================"
