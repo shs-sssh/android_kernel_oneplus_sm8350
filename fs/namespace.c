@@ -936,24 +936,9 @@ static struct mount *skip_mnt_tree(struct mount *p)
 struct vfsmount *vfs_create_mount(struct fs_context *fc)
 {
 	struct mount *mnt;
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-	struct mount *m;
-	struct mnt_namespace *mnt_ns;
-	int mnt_id;
-#endif
 
 	struct super_block *sb;
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-	// For newly created mounts, the only caller process we care is KSU
-	if (unlikely(susfs_is_current_ksu_domain())) {
-		mnt = alloc_vfsmnt(name, true, 0);
-		goto bypass_orig_flow;
-	}
-	mnt = alloc_vfsmnt(name, false, 0);
-bypass_orig_flow:
-#else
-	mnt = alloc_vfsmnt(fc->source ?: "none");
-#endif
+
 	if (!fc->root)
 	    return ERR_PTR(-EINVAL);
 	sb = fc->root->d_sb;
@@ -1050,47 +1035,6 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
     struct mount *mnt;
  	int err;
  
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-	struct mount *m;
-	struct mnt_namespace *mnt_ns;
-	int mnt_id;
-	bool is_current_ksu_domain = susfs_is_current_ksu_domain();
-	bool is_current_zygote_domain = susfs_is_current_zygote_domain();
-
-	/* - It is very important that we need to use CL_COPY_MNT_NS to identify whether 
-	 *   the clone is a copy_tree() or single mount like called by __do_loopback()
-	 * - if caller process is KSU, consider the following situation:
-	 *     1. it is NOT doing unshare => call alloc_vfsmnt() to assign a new sus mnt_id
-	 *     2. it is doing unshare => spoof the new mnt_id with the old mnt_id
-	 * - For the rest of caller process with sus old->mnt_id => call alloc_vfsmnt() to assign a new sus mnt_id
-	 * - Important notes: Here we can't determine whether the unshare is called by zygisk or not,
-	 *   so we can only patch out the unshare code in zygisk source code for now,
-	 *   but at least we can deal with old sus mounts using alloc_vfsmnt()
-	 */
-	// Firstly, check if it is KSU process
-	if (unlikely(is_current_ksu_domain)) {
-		// if it is doing single clone
-		if (!(flag & CL_COPY_MNT_NS)) {
-			mnt = alloc_vfsmnt(old->mnt_devname, true, 0);
-			goto bypass_orig_flow;
-		}
-		// if it is doing unshare
-		mnt = alloc_vfsmnt(old->mnt_devname, true, old->mnt_id);
-		if (mnt) {
-			mnt->mnt.susfs_mnt_id_backup = DEFAULT_SUS_MNT_ID_FOR_KSU_PROC_UNSHARE;
-		}
-		goto bypass_orig_flow;
-	}
-	// Lastly, just check if old->mnt_id is sus
-	if (old->mnt_id >= DEFAULT_SUS_MNT_ID) {
-		mnt = alloc_vfsmnt(old->mnt_devname, true, 0);
-		goto bypass_orig_flow;
-	}
-	mnt = alloc_vfsmnt(old->mnt_devname, false, 0);
-bypass_orig_flow:
-#else
- 	mnt = alloc_vfsmnt(old->mnt_devname);
-#endif
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
 
@@ -1121,28 +1065,6 @@ bypass_orig_flow:
 	mnt->mnt.mnt_root = dget(root);
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
 	mnt->mnt_parent = mnt;
-	
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-	// - If caller process is zygote, then it is a normal mount, so we calculate the next available 
-	//   fake mnt_id for this mount
-	if (susfs_is_current_zygote_domain()) {
-		mnt_ns = current->nsproxy->mnt_ns;
-		if (mnt_ns) {
-			get_mnt_ns(mnt_ns);
-			rcu_read_lock();
-			mnt_id = list_first_entry(&mnt_ns->list, struct mount, mnt_list)->mnt_id;
-			list_for_each_entry_rcu(m, &mnt_ns->list, mnt_list) {
-				if (m->mnt_id < DEFAULT_SUS_MNT_ID) {
-					mnt_id++;
-				}
-			}
-			WRITE_ONCE(mnt->mnt.susfs_mnt_id_backup, READ_ONCE(mnt->mnt_id));
-			WRITE_ONCE(mnt->mnt_id, READ_ONCE(mnt_id));
-			rcu_read_unlock();
-			put_mnt_ns(mnt_ns);
-		}
-	}
-#endif
 
 	lock_mount_hash();
 	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
@@ -3458,10 +3380,6 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
 	if (user_ns != ns->user_ns)
 		copy_flags |= CL_SHARED_TO_SLAVE;
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-	// Always let clone_mnt() in copy_tree() know it is from copy_mnt_ns()
-	copy_flags |= CL_COPY_MNT_NS;
-#endif
 
 	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
 	if (IS_ERR(new)) {
