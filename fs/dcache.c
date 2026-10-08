@@ -34,7 +34,9 @@
 #include <linux/list_lru.h>
 #include "internal.h"
 #include "mount.h"
-
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+#include <linux/susfs_def.h>
+#endif
 /*
  * Usage:
  * dcache->d_inode->i_lock protects:
