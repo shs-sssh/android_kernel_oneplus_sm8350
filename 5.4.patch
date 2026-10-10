@@ -1282,10 +1282,11 @@ diff --git a/fs/readdir.c b/fs/readdir.c
 index 426c68c..39e7a34 100644
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
-@@ -23,6 +23,22 @@
+@@ -23,6 +23,23 @@
  #include <linux/uaccess.h>
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++#include <linux/magic.h>
 +#include <linux/susfs_def.h>
 +extern int susfs_get_data_path(struct path *path);
 +extern bool susfs_is_inode_sus_path(struct inode *inode);
