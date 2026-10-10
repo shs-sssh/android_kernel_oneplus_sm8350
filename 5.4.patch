@@ -781,12 +781,7 @@ index 3f9f5fd..00c39a1 100644
  
  #include "internal.h"
  
-@@ -346,10 +346,13 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
- long do_faccessat(int dfd, const char __user *filename, int mode)
- {
- 	const struct cred *old_cred;
- 	struct cred *override_cred;
- 	struct path path;
+@@ -351,6 +351,9 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
  	struct inode *inode;
  	int res;
  	unsigned int lookup_flags = LOOKUP_FOLLOW;
@@ -794,11 +789,12 @@ index 3f9f5fd..00c39a1 100644
 +	struct filename *fname;
 +#endif
  
- 	if (mode & ~S_IRWXO)
-@@ -395,7 +398,16 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
+ 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
+ 		return -EINVAL;
+@@ -394,7 +397,16 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
+ 	}
  	old_cred = override_creds(override_cred);
  retry:
- 
 +#ifdef CONFIG_KSU_SUSFS
 +	fname = getname_flags(filename, lookup_flags, NULL);
 +	if (!IS_ERR(fname) && !susfs_is_current_proc_no_su() &&
