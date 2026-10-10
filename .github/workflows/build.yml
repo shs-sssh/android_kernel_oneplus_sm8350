@@ -64,16 +64,9 @@ jobs:
           ls -lh 5.4.patch
 
           echo "========================================"
-          echo "Checking patch applicability"
-          echo "========================================"
-          git apply --check 5.4.patch
-          echo "✅ Patch applicability check passed"
-
-          echo "========================================"
           echo "Applying SUSFS patch"
           echo "========================================"
-          git apply 5.4.patch
-          echo "✅ SUSFS patch applied successfully"
+          patch -p1 -N --ignore-whitespace < 5.4.patch
 
           echo "========================================"
           echo "Verifying SUSFS integration"
