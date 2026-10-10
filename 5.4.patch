@@ -905,7 +905,7 @@ index 5ac2d7f..516542a 100644
  static int seq_show(struct seq_file *m, void *v)
  {
  	struct files_struct *files = NULL;
-@@ -54,11 +64,28 @@ static int seq_show(struct seq_file *m, void *v)
+@@ -54,11 +64,27 @@ static int seq_show(struct seq_file *m, void *v)
   	if (ret)
   		return ret;
  	
@@ -930,10 +930,9 @@ index 5ac2d7f..516542a 100644
 +				mnt_id = susfs_get_non_sus_mnt_id_from_mnt(real_mount(file->f_path.mnt));
 +#endif
 +		}
-+		seq_printf(m, "pos:	%lli
-+flags:	0%o
-+mnt_id:	%i
-+",
++		seq_printf(m, "pos:\t%lli\n"
++			     "flags:\t0%o\n"
++			     "mnt_id:\t%i\n",
 +			   (long long)file->f_pos, f_flags, mnt_id);
 +	}
  	
