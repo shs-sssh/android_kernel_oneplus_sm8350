@@ -199,7 +199,7 @@ jobs:
           echo "========================================"
           echo "6. 开启全核并发编译"
           echo "========================================"
-          make -k "${MAKE_ARGS[@]}" -j"$(nproc)"
+          make "${MAKE_ARGS[@]}" -j"$(nproc)"
           
        # 6. 打包 AnyKernel3
       - name: Pack with AnyKernel3
