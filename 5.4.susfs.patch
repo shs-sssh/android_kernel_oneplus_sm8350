@@ -947,13 +947,15 @@ index 156bc0ff3c483f26573ba0fd7e3d83d87b2f09b0..a5d733e3891d0f8399373b9452aea4c4
  
  static int seq_show(struct seq_file *m, void *v)
  {
-@@ -54,9 +64,31 @@ static int seq_show(struct seq_file *m, void *v)
+@@ -54,11 +64,31 @@ static int seq_show(struct seq_file *m, void *v)
  	if (ret)
  		return ret;
  
--	seq_printf(m, "pos:\t%lli\nflags:\t0%o\nmnt_id:\t%i\n",
--		   (long long)file->f_pos, f_flags,
--		   real_mount(file->f_path.mnt)->mnt_id);
+-  seq_printf(m, "pos:\t%lli\n"
+-             "flags:\t0%o\n"
+-             "mnt_id:\t%i\n",
+-            (long long)file->f_pos, f_flags,
+-            real_mount(file->f_path.mnt)->mnt_id);
 +	{
 +		int mnt_id = real_mount(file->f_path.mnt)->mnt_id;
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
