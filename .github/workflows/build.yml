@@ -50,36 +50,44 @@ jobs:
           echo "SukiSU Makefile"
           echo "========================================"
           grep -nE '^(obj-|kernelsu-y)' drivers/kernelsu/Makefile
-      # 4. Integrate SUSFS
+            # 4. Integrate SUSFS
       - name: Integrate SUSFS
         run: |
           set -euo pipefail
-          cd kernel_source
+          cd "${GITHUB_WORKSPACE}/kernel_source"
+
           echo "========================================"
-          echo "Installing SUSFS"
+          echo "Checking SUSFS patch"
           echo "========================================"
-          rm -rf /tmp/susfs4ksu
-          git clone --depth=1 -b kernel-5.4 https://github.com/shs-sssh/susfs4ksu.git /tmp/susfs4ksu
+          test -f "${GITHUB_WORKSPACE}/kernel_source/5.4.patch"
+          ls -lh 5.4.patch
+
           echo "========================================"
-          echo "Preparing SUSFS kernel source"
+          echo "Checking patch applicability"
           echo "========================================"
-          cp /tmp/susfs4ksu/kernel_patches/fs/susfs.c fs/susfs.c
-          cp /tmp/susfs4ksu/kernel_patches/include/linux/susfs*.h include/linux/
+          git apply --check 5.4.patch
+
           echo "========================================"
-          echo "Applying SUSFS kernel patch"
+          echo "Applying SUSFS patch"
           echo "========================================"
-          cd "$GITHUB_WORKSPACE/kernel_source"
-          find . -type f \( -name "*.rej" -o -name "*.orig" \) -delete
-          patch -p1 -N --ignore-whitespace < /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.4.patch
+          git apply 5.4.patch
+
           echo "========================================"
           echo "Verifying SUSFS integration"
           echo "========================================"
           test -f fs/susfs.c
-          ls -l fs/susfs.c
-          ls -l include/linux/susfs*.h
+          test -f include/linux/susfs.h
+          test -f include/linux/susfs_def.h
+
+          ls -lh fs/susfs.c include/linux/susfs*.h
           grep -n "susfs.o" fs/Makefile
           grep -n "KSU_SUSFS" drivers/kernelsu/Kconfig | head -30 || true
-          grep -Rns "KSU_SUSFS" drivers/kernelsu --include='*.c' --include='*.h' --include='Kconfig' --include='Makefile' | head -50 || true
+          grep -Rns "KSU_SUSFS" drivers/kernelsu \
+            --include='*.c' \
+            --include='*.h' \
+            --include='Kconfig' \
+            --include='Makefile' | head -50 || true
+
           echo "========================================"
           echo "SUSFS integration completed successfully"
           echo "========================================"
