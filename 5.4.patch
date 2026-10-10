@@ -781,8 +781,11 @@ index 3f9f5fd..00c39a1 100644
  
  #include "internal.h"
  
-@@ -395,7 +401,16 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
+@@ -395,7 +401,19 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
  
++#ifdef CONFIG_KSU_SUSFS
++	struct filename *fname;
++#endif
  	old_cred = override_creds(override_cred);
  retry:
 +#ifdef CONFIG_KSU_SUSFS
@@ -1282,8 +1285,6 @@ index 426c68c..39e7a34 100644
 @@ -23,6 +23,22 @@
  #include <linux/uaccess.h>
  
- /*
-+
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +#include <linux/susfs_def.h>
 +extern int susfs_get_data_path(struct path *path);
@@ -1299,6 +1300,8 @@ index 426c68c..39e7a34 100644
 +	return hidden;
 +}
 +#endif
++
+ /*
   * Note the "unsafe_put_user() semantics: we goto a
   * label for errors.
   */
