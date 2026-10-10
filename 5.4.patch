@@ -781,7 +781,7 @@ index 3f9f5fd..00c39a1 100644
  
  #include "internal.h"
  
-@@ -351,6 +351,9 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
+@@ -353,6 +359,9 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
  	struct inode *inode;
  	int res;
  	unsigned int lookup_flags = LOOKUP_FOLLOW;
@@ -791,7 +791,7 @@ index 3f9f5fd..00c39a1 100644
  
  	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
  		return -EINVAL;
-@@ -394,7 +397,16 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
+@@ -396,7 +405,16 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
  	}
  	old_cred = override_creds(override_cred);
  retry:
