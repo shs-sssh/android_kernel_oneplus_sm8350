@@ -905,7 +905,7 @@ index 5ac2d7f..516542a 100644
  static int seq_show(struct seq_file *m, void *v)
  {
  	struct files_struct *files = NULL;
-@@ -54,11 +64,32 @@ static int seq_show(struct seq_file *m, void *v)
+@@ -54,11 +64,23 @@ static int seq_show(struct seq_file *m, void *v)
   	if (ret)
   		return ret;
  	
