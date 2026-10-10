@@ -50,7 +50,8 @@ jobs:
           echo "SukiSU Makefile"
           echo "========================================"
           grep -nE '^(obj-|kernelsu-y)' drivers/kernelsu/Makefile
-            # 4. Integrate SUSFS
+          
+      # 4. Integrate SUSFS
       - name: Integrate SUSFS
         run: |
           set -euo pipefail
@@ -66,11 +67,13 @@ jobs:
           echo "Checking patch applicability"
           echo "========================================"
           git apply --check 5.4.patch
+          echo "✅ Patch applicability check passed"
 
           echo "========================================"
           echo "Applying SUSFS patch"
           echo "========================================"
           git apply 5.4.patch
+          echo "✅ SUSFS patch applied successfully"
 
           echo "========================================"
           echo "Verifying SUSFS integration"
