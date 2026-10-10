@@ -781,11 +781,13 @@ index 3f9f5fd..00c39a1 100644
  
  #include "internal.h"
  
-@@ -395,7 +401,19 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
- 
+@@ -355,1 +355,4 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
+ 	unsigned int lookup_flags = LOOKUP_FOLLOW;
 +#ifdef CONFIG_KSU_SUSFS
 +	struct filename *fname;
 +#endif
+@@ -395,7 +398,16 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
+ 
  	old_cred = override_creds(override_cred);
  retry:
 +#ifdef CONFIG_KSU_SUSFS
