@@ -66,7 +66,7 @@ jobs:
           echo "========================================"
           echo "Applying SUSFS patch"
           echo "========================================"
-          patch -p1 -N --ignore-whitespace < 5.4.patch
+          patch -p1 -N --ignore-whitespace < 5.4.susfs.patch
           
           echo "========================================"
           echo "Verifying SUSFS integration"
