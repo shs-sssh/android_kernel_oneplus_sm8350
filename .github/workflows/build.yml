@@ -120,7 +120,7 @@ jobs:
           CONFIG_KSU_SUCOMPAT=y
           CONFIG_KSU_SULOG=y
           # SUSFS
-          CONGIG_BOOT_CONFIG=y
+          CONFIG_BOOT_CONFIG=y
           CONFIG_KSU_SUSFS=y
           CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
           CONFIG_KSU_SUSFS_SUS_PATH=y
@@ -133,6 +133,7 @@ jobs:
           CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
           CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
           CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+          CONFIG_THREAD_INFO_IN_TASK=y
           # Kernel Security Dependencies
           CONFIG_SECCOMP=y
           CONFIG_SECCOMP_FILTER=y
