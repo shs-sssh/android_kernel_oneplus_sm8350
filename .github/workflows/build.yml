@@ -143,6 +143,10 @@ jobs:
           # CONFIG_IOMMU_DEBUG is not set
           # CONFIG_IOMMU_DEBUGFS is not set
           # CONFIG_MEM_SHARE_QMI_SERVICE is not set
+          # OPEN_REDIRECT is disabled by the SukiSU/SUSFS 5.4 compatibility fix.
+          # CONFIG_KSU_SUSFS_OPEN_REDIRECT is not set
+          # Legacy SUS_SU is for kprobe-hooked KSU, not builtin/manual hooks.
+          # CONFIG_KSU_SUSFS_SUS_SU is not set
           EOF
           MAKE_ARGS=(
             ARCH=arm64
@@ -163,31 +167,31 @@ jobs:
           echo "========================================"
           make "${MAKE_ARGS[@]}" olddefconfig
           echo "========================================"
-          # echo "5. 校验 SUSFS Config"
-          # echo "========================================"
-          # grep -E '^CONFIG_KSU_SUSFS' "${OUT_DIR}/.config" || true
-          # for CONFIG in \
-          #   CONFIG_KSU_SUSFS \
-          #   CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT \
-          #   CONFIG_KSU_SUSFS_SUS_PATH \
-          #   CONFIG_KSU_SUSFS_SUS_MOUNT \
-          #   CONFIG_KSU_SUSFS_SUS_KSTAT \
-          #   CONFIG_KSU_SUSFS_TRY_UMOUNT \
-          #   CONFIG_KSU_SUSFS_SPOOF_UNAME \
-          #   CONFIG_KSU_SUSFS_ENABLE_LOG \
-          #   CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
-          #   CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
-          # 
-          # do
-          #   if ! grep -q "^${CONFIG}=y$" "${OUT_DIR}/.config"; then
-          #     echo "❌ ERROR: ${CONFIG} 没有成功开启！"
-          #     exit 1
-          #   fi
-          # done
-          # echo "✅ SUCCESS: 所有要求的 SUSFS Config 均已开启！"
+          echo "5. 校验 SUSFS Config"
+          echo "========================================"
+          grep -E '^CONFIG_KSU_SUSFS' "${OUT_DIR}/.config" || true
+          for CONFIG in \
+            CONFIG_KSU_SUSFS \
+            CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT \
+            CONFIG_KSU_SUSFS_SUS_PATH \
+            CONFIG_KSU_SUSFS_SUS_MOUNT \
+            CONFIG_KSU_SUSFS_SUS_KSTAT \
+            CONFIG_KSU_SUSFS_TRY_UMOUNT \
+            CONFIG_KSU_SUSFS_SPOOF_UNAME \
+            CONFIG_KSU_SUSFS_ENABLE_LOG \
+            CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
+            CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
           
-          # # 在 Actions 日志中校验 KSU是否成功开启
-          # grep -E '^CONFIG_KSU(=|_)' "${OUT_DIR}/.config" || true
+          do
+            if ! grep -q "^${CONFIG}=y$" "${OUT_DIR}/.config"; then
+              echo "❌ ERROR: ${CONFIG} 没有成功开启！"
+              exit 1
+            fi
+          done
+          echo "✅ SUCCESS: 所有要求的 SUSFS Config 均已开启！"
+          
+          # 在 Actions 日志中校验 KSU是否成功开启
+          grep -E '^CONFIG_KSU(=|_)' "${OUT_DIR}/.config" || true
           echo "========================================"
           echo "5. Kbuild 准备"
           echo "========================================"
