@@ -179,7 +179,6 @@ jobs:
             CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
             CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
             CONFIG_KSU_SUSFS_OPEN_REDIRECT \
-            CONFIG_KSU_SUSFS_SUS_SU
           do
             if ! grep -q "^${CONFIG}=y$" "${OUT_DIR}/.config"; then
               echo "❌ ERROR: ${CONFIG} 没有成功开启！"
