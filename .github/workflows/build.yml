@@ -132,7 +132,6 @@ jobs:
           CONFIG_KSU_SUSFS_ENABLE_LOG=y
           CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
           CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
-          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
           CONFIG_THREAD_INFO_IN_TASK=y
           # Kernel Security Dependencies
           CONFIG_SECCOMP=y
@@ -178,7 +177,7 @@ jobs:
           #   CONFIG_KSU_SUSFS_ENABLE_LOG \
           #   CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
           #   CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
-          #   CONFIG_KSU_SUSFS_OPEN_REDIRECT \
+          # 
           # do
           #   if ! grep -q "^${CONFIG}=y$" "${OUT_DIR}/.config"; then
           #     echo "❌ ERROR: ${CONFIG} 没有成功开启！"
