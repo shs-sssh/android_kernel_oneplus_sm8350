@@ -91,6 +91,7 @@ jobs:
           patch -p1 --fuzz=0 < "${GITHUB_WORKSPACE}/SukiSU-Ultra-builtin-selinux-hide-5.4-aligned.patch"
           patch -p1 --fuzz=0 < "${GITHUB_WORKSPACE}/sukisu-uapi5-aligned.patch"
           patch -p1 --fuzz=0 < "${GITHUB_WORKSPACE}/SukiSU-Ultra-builtin-seccomp-filter-mode-and-driver-fd-5.4.patch"
+          patch -p1 --fuzz=0 < "${GITHUB_WORKSPACE}/SukiSU-Ultra-builtin-shell-su-adb-only-compat-5.4.patch"
           echo "[+] Pinned SukiSU CPU Spoof, SELinux Hide 5.4 and UAPI v5 patches applied"
 
       # 6. 准备最终内核配置；配置检查统一放在单独的验证步骤
