@@ -1,1 +1,1 @@
-编译sukisu加susfs适配中
+编译sukisu加susfs适配成功
