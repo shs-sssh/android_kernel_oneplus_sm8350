@@ -1,0 +1,165 @@
+diff --git a/kernel/hook/lsm_hook.c b/kernel/hook/lsm_hook.c
+index 0c303ba..e06b803 100644
+--- a/kernel/hook/lsm_hook.c
++++ b/kernel/hook/lsm_hook.c
+@@ -1,3 +1,8 @@
++#include <asm/unistd.h>
++#include <linux/sched/signal.h>
++#include <linux/spinlock.h>
++#include "infra/seccomp_cache.h"
++
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) || defined(CONFIG_IS_HW_HISI) ||                                     \
+     defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
+ static int ksu_key_permission(key_ref_t key_ref, const struct cred *cred, unsigned perm)
+@@ -38,12 +43,12 @@ static int handle_zygote_setresuid(uid_t ruid) {
+         goto do_umount;
+     }
+ 
+-    // - Since ksu maanger app uid is excluded in allow_list_arr, so ksu_uid_should_umount(manager_uid)
+-    //   will always return true, that's why we need to explicitly check if new_uid belongs to
+-    //   ksu manager.
+-    // - Disable seccomp restriction for KSU manager since running with "su" will disable seccomp anyway
++    // The manager keeps its inherited seccomp filter. Whitelist only the reboot-based
++    // KernelSU driver-FD request instead of disabling seccomp for the whole process.
+     if (likely(ksu_is_manager_appid_valid()) && unlikely(is_uid_manager(ruid))) {
+-        disable_seccomp();
++        spin_lock_irq(&current->sighand->siglock);
++        ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
++        spin_unlock_irq(&current->sighand->siglock);
+         pr_info("install fd for manager: %d\n", ruid);
+         ksu_install_fd();
+         return 0;
+@@ -88,12 +93,12 @@ static int handle_zygote_next_setresuid(uid_t ruid) {
+         goto do_susfs_work;
+     }
+ 
+-    // - Since ksu maanger app uid is excluded in allow_list_arr, so ksu_uid_should_umount(manager_uid)
+-    //   will always return true, that's why we need to explicitly check if new_uid belongs to
+-    //   ksu manager.
+-    // - Disable seccomp restriction for KSU manager since running with "su" will disable seccomp anyway
++    // The manager keeps its inherited seccomp filter. Whitelist only the reboot-based
++    // KernelSU driver-FD request instead of disabling seccomp for the whole process.
+     if (likely(ksu_is_manager_appid_valid()) && unlikely(is_uid_manager(ruid))) {
+-        disable_seccomp();
++        spin_lock_irq(&current->sighand->siglock);
++        ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
++        spin_unlock_irq(&current->sighand->siglock);
+         pr_info("install fd for manager: %d\n", ruid);
+         ksu_install_fd();
+         return 0;
+@@ -158,7 +163,9 @@ static int ksu_task_fix_setuid(struct cred *new, const struct cred *old, int fla
+     old_uid = old->uid.val;
+ 
+     if (unlikely(is_uid_manager(new_uid))) {
+-        disable_seccomp();
++        spin_lock_irq(&current->sighand->siglock);
++        ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
++        spin_unlock_irq(&current->sighand->siglock);
+         pr_info("install fd for manager: %d\n", new_uid);
+         ksu_install_fd();
+         return 0;
+diff --git a/kernel/infra/seccomp_cache.c b/kernel/infra/seccomp_cache.c
+new file mode 100644
+index 0000000..68bb289
+--- /dev/null
++++ b/kernel/infra/seccomp_cache.c
+@@ -0,0 +1,69 @@
++#include <linux/version.h>
++#include <linux/bitops.h>
++#include <linux/refcount.h>
++#include <linux/mutex.h>
++#include <linux/wait.h>
++#include <linux/fs.h>
++#include <linux/nsproxy.h>
++#include <linux/sched/task.h>
++#include <linux/uaccess.h>
++#include <linux/filter.h>
++#include <linux/seccomp.h>
++#include "klog.h" // IWYU pragma: keep
++#include "infra/seccomp_cache.h"
++
++struct action_cache {
++    DECLARE_BITMAP(allow_native, SECCOMP_ARCH_NATIVE_NR);
++#ifdef SECCOMP_ARCH_COMPAT
++    DECLARE_BITMAP(allow_compat, SECCOMP_ARCH_COMPAT_NR);
++#endif
++};
++
++struct seccomp_filter {
++    refcount_t refs;
++    refcount_t users;
++    bool log;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
++    bool wait_killable_recv;
++#endif
++    struct action_cache cache;
++    struct seccomp_filter *prev;
++    struct bpf_prog *prog;
++    struct notification *notif;
++    struct mutex notify_lock;
++    wait_queue_head_t wqh;
++};
++
++void ksu_seccomp_clear_cache(struct seccomp_filter *filter, int nr)
++{
++    if (!filter) {
++        return;
++    }
++
++    if (nr >= 0 && nr < SECCOMP_ARCH_NATIVE_NR) {
++        clear_bit(nr, filter->cache.allow_native);
++    }
++
++#ifdef SECCOMP_ARCH_COMPAT
++    if (nr >= 0 && nr < SECCOMP_ARCH_COMPAT_NR) {
++        clear_bit(nr, filter->cache.allow_compat);
++    }
++#endif
++}
++
++void ksu_seccomp_allow_cache(struct seccomp_filter *filter, int nr)
++{
++    if (!filter) {
++        return;
++    }
++
++    if (nr >= 0 && nr < SECCOMP_ARCH_NATIVE_NR) {
++        set_bit(nr, filter->cache.allow_native);
++    }
++
++#ifdef SECCOMP_ARCH_COMPAT
++    if (nr >= 0 && nr < SECCOMP_ARCH_COMPAT_NR) {
++        set_bit(nr, filter->cache.allow_compat);
++    }
++#endif
++}
+diff --git a/kernel/infra/seccomp_cache.h b/kernel/infra/seccomp_cache.h
+new file mode 100644
+index 0000000..916073f
+--- /dev/null
++++ b/kernel/infra/seccomp_cache.h
+@@ -0,0 +1,12 @@
++#ifndef __KSU_INFRA_SECCOMP_CACHE_H
++#define __KSU_INFRA_SECCOMP_CACHE_H
++
++#include <linux/fs.h>
++#include <linux/version.h>
++
++struct seccomp_filter;
++
++extern void ksu_seccomp_clear_cache(struct seccomp_filter *filter, int nr);
++extern void ksu_seccomp_allow_cache(struct seccomp_filter *filter, int nr);
++
++#endif
+diff --git a/kernel/ksu.c b/kernel/ksu.c
+index ba495d5..67b151c 100644
+--- a/kernel/ksu.c
++++ b/kernel/ksu.c
+@@ -74,6 +74,7 @@
+ #include "infra/su_mount_ns.c"
+ #include "infra/file_wrapper.c"
+ #include "infra/event_queue.c"
++#include "infra/seccomp_cache.c"
+ 
+ #ifdef CONFIG_KSU_FEATURE_ADBROOT
+ #include "feature/adb_root.c"
