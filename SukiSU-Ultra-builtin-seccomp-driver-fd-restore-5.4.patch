@@ -1,0 +1,35 @@
+diff --git b/kernel/hook/lsm_hook.c a/kernel/hook/lsm_hook.c
+index 2d44701..0c303ba 100644
+--- b/kernel/hook/lsm_hook.c
++++ a/kernel/hook/lsm_hook.c
+@@ -41,8 +41,9 @@ static int handle_zygote_setresuid(uid_t ruid) {
+     // - Since ksu maanger app uid is excluded in allow_list_arr, so ksu_uid_should_umount(manager_uid)
+     //   will always return true, that's why we need to explicitly check if new_uid belongs to
+     //   ksu manager.
+-    // Keep the inherited seccomp filter for the manager so PR_GET_SECCOMP reports its actual mode.
++    // - Disable seccomp restriction for KSU manager since running with "su" will disable seccomp anyway
+     if (likely(ksu_is_manager_appid_valid()) && unlikely(is_uid_manager(ruid))) {
++        disable_seccomp();
+         pr_info("install fd for manager: %d\n", ruid);
+         ksu_install_fd();
+         return 0;
+@@ -90,8 +91,9 @@ static int handle_zygote_next_setresuid(uid_t ruid) {
+     // - Since ksu maanger app uid is excluded in allow_list_arr, so ksu_uid_should_umount(manager_uid)
+     //   will always return true, that's why we need to explicitly check if new_uid belongs to
+     //   ksu manager.
+-    // Keep the inherited seccomp filter for the manager so PR_GET_SECCOMP reports its actual mode.
++    // - Disable seccomp restriction for KSU manager since running with "su" will disable seccomp anyway
+     if (likely(ksu_is_manager_appid_valid()) && unlikely(is_uid_manager(ruid))) {
++        disable_seccomp();
+         pr_info("install fd for manager: %d\n", ruid);
+         ksu_install_fd();
+         return 0;
+@@ -156,7 +158,7 @@ static int ksu_task_fix_setuid(struct cred *new, const struct cred *old, int fla
+     old_uid = old->uid.val;
+ 
+     if (unlikely(is_uid_manager(new_uid))) {
+-        // Preserve the manager process's inherited seccomp filter.
++        disable_seccomp();
+         pr_info("install fd for manager: %d\n", new_uid);
+         ksu_install_fd();
+         return 0;
