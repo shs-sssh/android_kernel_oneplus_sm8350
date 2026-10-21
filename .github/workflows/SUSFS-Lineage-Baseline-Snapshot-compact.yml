@@ -1,0 +1,148 @@
+name: SUSFS Lineage Baseline Snapshot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout patch repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Checkout LineageOS kernel source
+        uses: actions/checkout@v4
+        with:
+          repository: LineageOS/android_kernel_oneplus_sm8350
+          ref: lineage-23.2
+          path: kernel_source
+          fetch-depth: 1
+
+      # Apply the exact patches already used by the user's build.
+      # SUSFS is included in lemonadep.kernel.patch; do not clone a separate SUSFS tree.
+      - name: Apply kernel patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/kernel_source"
+          test -s "$GITHUB_WORKSPACE/lemonadep.kernel.patch"
+          patch --dry-run -p1 --fuzz=0 < "$GITHUB_WORKSPACE/lemonadep.kernel.patch"
+          patch -p1 --fuzz=0 < "$GITHUB_WORKSPACE/lemonadep.kernel.patch"
+          if [ -f "$GITHUB_WORKSPACE/binder-freezer-enable.patch" ]; then
+            patch --dry-run -p1 --fuzz=0 < "$GITHUB_WORKSPACE/binder-freezer-enable.patch"
+            patch -p1 --fuzz=0 < "$GITHUB_WORKSPACE/binder-freezer-enable.patch"
+          fi
+
+      # Keep the same pinned SukiSU commit and integration layout as the existing build workflow.
+      - name: Integrate pinned SukiSU and apply user patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/kernel_source"
+          SUKISU_PIN="ce830530e536c6dadf2566f98a4b56c83dfc28fb"
+          KSU_REPO="$GITHUB_WORKSPACE/kernel_source/KernelSU"
+          rm -rf "$KSU_REPO"
+          git clone --branch builtin --single-branch --no-checkout \
+            https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$KSU_REPO"
+          git -C "$KSU_REPO" fetch origin "$SUKISU_PIN" --depth=1
+          git -C "$KSU_REPO" checkout --detach FETCH_HEAD
+          test "$(git -C "$KSU_REPO" rev-parse HEAD)" = "$SUKISU_PIN"
+
+          DRIVER_DIR="$GITHUB_WORKSPACE/kernel_source/drivers"
+          ln -sfn ../KernelSU/kernel "$DRIVER_DIR/kernelsu"
+          grep -Fq 'obj-$(CONFIG_KSU) += kernelsu/' "$DRIVER_DIR/Makefile" || \
+            printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> "$DRIVER_DIR/Makefile"
+          grep -Fq 'source "drivers/kernelsu/Kconfig"' "$DRIVER_DIR/Kconfig" || \
+            sed -i '/^endmenu/i source "drivers/kernelsu/Kconfig"' "$DRIVER_DIR/Kconfig"
+
+          # Use the user's SukiSU patch; it contains their feature changes.
+          test -s "$GITHUB_WORKSPACE/lemonadep.sukisu.patch"
+          cd "$KSU_REPO"
+          patch --dry-run -p1 --fuzz=0 < "$GITHUB_WORKSPACE/lemonadep.sukisu.patch"
+          patch -p1 --fuzz=0 < "$GITHUB_WORKSPACE/lemonadep.sukisu.patch"
+
+          # Preserve the test-only UAPI patch when present, matching the existing build workflow.
+          if [ -f "$GITHUB_WORKSPACE/lemonadep.uapi5.patch" ]; then
+            patch --dry-run -p1 --fuzz=0 < "$GITHUB_WORKSPACE/lemonadep.uapi5.patch"
+            patch -p1 --fuzz=0 < "$GITHUB_WORKSPACE/lemonadep.uapi5.patch"
+          fi
+
+      - name: Capture compact patched-file baseline and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          OUT="$GITHUB_WORKSPACE/susfs-lineage-baseline"
+          mkdir -p "$OUT/files/kernel" "$OUT/files/KernelSU" "$OUT/metadata"
+
+          # Record only files touched by the user's patches, not the entire kernel tree.
+          # Kernel-side patch paths are relative to kernel_source; SukiSU patch paths
+          # are relative to kernel_source/KernelSU.
+          collect_patch_paths() {
+            local patch_file="$1" prefix="$2" dest="$3" root="$4"
+            while IFS= read -r path; do
+              [ -n "$path" ] || continue
+              [ "$path" = /dev/null ] && continue
+              path="${path#b/}"
+              path="${path#a/}"
+              [ -f "$root/$path" ] || continue
+              mkdir -p "$dest/$(dirname "$path")"
+              cp -p "$root/$path" "$dest/$path"
+            done < <(sed -nE 's|^diff --git a/(.*) b/.*$|\1|p' "$patch_file" | sort -u)
+          }
+
+          collect_patch_paths "$GITHUB_WORKSPACE/lemonadep.kernel.patch" kernel "$OUT/files/kernel" "$GITHUB_WORKSPACE/kernel_source"
+          if [ -f "$GITHUB_WORKSPACE/binder-freezer-enable.patch" ]; then
+            collect_patch_paths "$GITHUB_WORKSPACE/binder-freezer-enable.patch" kernel "$OUT/files/kernel" "$GITHUB_WORKSPACE/kernel_source"
+          fi
+          collect_patch_paths "$GITHUB_WORKSPACE/lemonadep.sukisu.patch" KernelSU "$OUT/files/KernelSU" "$GITHUB_WORKSPACE/kernel_source/KernelSU"
+          if [ -f "$GITHUB_WORKSPACE/lemonadep.uapi5.patch" ]; then
+            collect_patch_paths "$GITHUB_WORKSPACE/lemonadep.uapi5.patch" KernelSU "$OUT/files/KernelSU" "$GITHUB_WORKSPACE/kernel_source/KernelSU"
+          fi
+
+          # Include integration entry points and preserve the patch files used for this baseline.
+          for f in drivers/Makefile drivers/Kconfig; do
+            mkdir -p "$OUT/files/kernel/$(dirname "$f")"
+            cp -p "kernel_source/$f" "$OUT/files/kernel/$f"
+          done
+          cp -p lemonadep.kernel.patch lemonadep.sukisu.patch "$OUT/metadata/"
+          for p in binder-freezer-enable.patch lemonadep.uapi5.patch; do
+            [ ! -f "$p" ] || cp -p "$p" "$OUT/metadata/"
+          done
+
+          {
+            echo "kernel_repo=https://github.com/LineageOS/android_kernel_oneplus_sm8350.git"
+            echo "kernel_requested_ref=lineage-23.2"
+            echo "kernel_commit=$(git -C kernel_source rev-parse HEAD)"
+            echo "sukisu_repo=https://github.com/SukiSU-Ultra/SukiSU-Ultra.git"
+            echo "sukisu_commit=$(git -C kernel_source/KernelSU rev-parse HEAD)"
+            echo "sukisu_expected_commit=ce830530e536c6dadf2566f98a4b56c83dfc28fb"
+            echo "snapshot_stage=patched files only; after kernel and SukiSU patches"
+            echo "created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$OUT/metadata/versions.txt"
+          git -C kernel_source status --short > "$OUT/metadata/kernel-git-status.txt"
+          git -C kernel_source/KernelSU status --short > "$OUT/metadata/sukisu-git-status.txt"
+          (cd "$OUT" && find files -type f -print0 | sort -z | xargs -0 sha256sum) > "$OUT/metadata/files-sha256.txt"
+          for p in lemonadep.kernel.patch binder-freezer-enable.patch lemonadep.sukisu.patch lemonadep.uapi5.patch; do
+            [ ! -f "$p" ] || sha256sum "$p"
+          done > "$OUT/metadata/patch-sha256.txt"
+
+          tar -czf "$GITHUB_WORKSPACE/susfs-lineage-baseline.tar.gz" -C "$OUT" .
+          sha256sum "$GITHUB_WORKSPACE/susfs-lineage-baseline.tar.gz" > "$GITHUB_WORKSPACE/susfs-lineage-baseline.sha256"
+
+      - name: Upload baseline snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: susfs-lineage-baseline
+          path: |
+            susfs-lineage-baseline.tar.gz
+            susfs-lineage-baseline.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
