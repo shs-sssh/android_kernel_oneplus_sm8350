@@ -1,110 +1,113 @@
-name: SUSFS Lineage Baseline Snapshot
+```yaml
+name: Full Kernel Baseline Snapshot
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   snapshot:
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    env:
+      KERNEL_REPO: ${{ github.repository }}
+      KERNEL_REF: lineage-23.2
+      SUKISU_REPO: https://github.com/shs-sssh/SukiSU-Ultra.git
+      SUKISU_REF: builtin-new
+      SUSFS_REPO: https://github.com/shs-sssh/susfs4ksu.git
+      SUSFS_REF: kernel-5.4
+
     steps:
-      - name: Checkout Lineage kernel source
+      - name: Checkout kernel source
         uses: actions/checkout@v4
         with:
-          ref: lineage-23.2
+          ref: ${{ env.KERNEL_REF }}
           path: kernel_source
           fetch-depth: 1
 
-      - name: Integrate the same SukiSU builtin revision used by the build
+      - name: Checkout exact SukiSU source
+        uses: actions/checkout@v4
+        with:
+          repository: shs-sssh/SukiSU-Ultra
+          ref: ${{ env.SUKISU_REF }}
+          path: SukiSU-Ultra
+          fetch-depth: 1
+
+      - name: Integrate SukiSU
         shell: bash
         run: |
           set -euo pipefail
-          cd "${GITHUB_WORKSPACE}/kernel_source"
-          git checkout -- arch/arm64/boot/dts/ || true
-          rm -rf /tmp/SukiSU-Ultra
-          git clone --depth=1 -b builtin https://github.com/shs-sssh/SukiSU-Ultra.git /tmp/SukiSU-Ultra
-          bash /tmp/SukiSU-Ultra/kernel/setup.sh
+          cd "$GITHUB_WORKSPACE/kernel_source"
+          bash "$GITHUB_WORKSPACE/SukiSU-Ultra/kernel/setup.sh"
+
+      - name: Capture complete source tree and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p baseline/metadata baseline/susfs-fork
+
+          # Record the exact source revisions used for this snapshot.
           {
-            echo "kernel_commit=$(git rev-parse HEAD)"
-            echo "sukisu_commit=$(git -C /tmp/SukiSU-Ultra rev-parse HEAD)"
-            echo "sukisu_branch=builtin"
-          } > "${GITHUB_WORKSPACE}/snapshot-versions.txt"
-          git status --short > "${GITHUB_WORKSPACE}/snapshot-git-status.txt"
+            echo "kernel_repo=$KERNEL_REPO"
+            echo "kernel_requested_ref=$KERNEL_REF"
+            echo "kernel_commit=$(git -C kernel_source rev-parse HEAD)"
+            echo "sukisu_repo=$SUKISU_REPO"
+            echo "sukisu_requested_ref=$SUKISU_REF"
+            echo "sukisu_commit=$(git -C SukiSU-Ultra rev-parse HEAD)"
+            echo "susfs_repo=$SUSFS_REPO"
+            echo "susfs_requested_ref=$SUSFS_REF"
+            echo "snapshot_stage=after SukiSU setup"
+            echo "created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > baseline/metadata/versions.txt
 
-      - name: Export exact patch-target files and SUSFS fork files
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "${GITHUB_WORKSPACE}/kernel_source"
-          SNAP="${GITHUB_WORKSPACE}/susfs-lineage-baseline"
-          mkdir -p "${SNAP}/kernel" "${SNAP}/susfs-fork"
-          : > "${SNAP}/missing-kernel-files.txt"
+          git -C kernel_source status --short \
+            > baseline/metadata/kernel-git-status.txt
+          git -C SukiSU-Ultra status --short \
+            > baseline/metadata/sukisu-git-status.txt
 
-          files=(
-            fs/Makefile
-            fs/namei.c
-            fs/namespace.c
-            fs/notify/fdinfo.c
-            fs/open.c
-            fs/proc/base.c
-            fs/proc/bootconfig.c
-            fs/proc/cmdline.c
-            fs/proc/fd.c
-            fs/proc/task_mmu.c
-            fs/proc_namespace.c
-            fs/readdir.c
-            fs/stat.c
-            fs/statfs.c
-            fs/super.c
-            kernel/kallsyms.c
-            kernel/reboot.c
-            kernel/sys.c
-            mm/memory.c
-            security/selinux/avc.c
-            drivers/input/input.c
-            fs/exec.c
-            fs/dcache.c
-            include/linux/mount.h
-            include/linux/stat.h
-            include/linux/susfs.h
-            include/linux/susfs_def.h
-            fs/susfs.c
+          # Save the SukiSU source used in the snapshot.
+          cp -a SukiSU-Ultra baseline/SukiSU-Ultra
+
+          # Save the SUSFS fork revision and its patch/source files.
+          git clone --depth=1 --branch "$SUSFS_REF" \
+            "$SUSFS_REPO" baseline/susfs-fork/repository
+          git -C baseline/susfs-fork/repository rev-parse HEAD \
+            > baseline/susfs-fork/commit.txt
+
+          # Save the FULL kernel source tree after SukiSU setup.
+          # Exclude Git internals and common build outputs to reduce size.
+          tar -czf baseline/full-kernel-source.tar.gz \
+            --exclude='./.git' \
+            --exclude='./out' \
+            --exclude='./output' \
+            --exclude='./.repo' \
+            -C kernel_source .
+
+          # Save metadata and SukiSU source separately.
+          tar -czf baseline/metadata-and-sukisu.tar.gz \
+            baseline/metadata \
+            baseline/SukiSU-Ultra \
+            baseline/susfs-fork
+
+          (
+            cd baseline
+            sha256sum full-kernel-source.tar.gz \
+              metadata-and-sukisu.tar.gz > SHA256SUMS
           )
 
-          for f in "${files[@]}"; do
-            if [ -f "$f" ]; then
-              mkdir -p "${SNAP}/kernel/$(dirname "$f")"
-              cp -a "$f" "${SNAP}/kernel/$f"
-            else
-              echo "$f" >> "${SNAP}/missing-kernel-files.txt"
-            fi
-          done
-
-          # Keep the user's existing SUSFS fork source available for direct comparison.
-          rm -rf /tmp/susfs4ksu
-          git clone --depth=1 -b kernel-5.4 https://github.com/shs-sssh/susfs4ksu.git /tmp/susfs4ksu
-          git -C /tmp/susfs4ksu rev-parse HEAD > "${SNAP}/susfs-fork/commit.txt"
-          for f in kernel_patches/fs/susfs.c kernel_patches/include/linux/susfs.h kernel_patches/include/linux/susfs_def.h kernel_patches/50_add_susfs_in_kernel-5.4.patch; do
-            if [ -f "/tmp/susfs4ksu/$f" ]; then
-              mkdir -p "${SNAP}/susfs-fork/$(dirname "$f")"
-              cp -a "/tmp/susfs4ksu/$f" "${SNAP}/susfs-fork/$f"
-            fi
-          done
-
-          cp "${GITHUB_WORKSPACE}/snapshot-versions.txt" "${SNAP}/versions.txt"
-          cp "${GITHUB_WORKSPACE}/snapshot-git-status.txt" "${SNAP}/git-status-after-sukisu-setup.txt"
-          {
-            echo "This is a source snapshot only; no kernel compile was run."
-            echo "The kernel files are captured AFTER SukiSU setup.sh and BEFORE applying SUSFS."
-            echo "The susfs-fork directory contains the exact files from the kernel-5.4 branch cloned by the original workflow."
-          } > "${SNAP}/README.txt"
-          tar -czf "${GITHUB_WORKSPACE}/susfs-lineage-baseline.tar.gz" -C "${GITHUB_WORKSPACE}" susfs-lineage-baseline
-          sha256sum "${GITHUB_WORKSPACE}/susfs-lineage-baseline.tar.gz" > "${GITHUB_WORKSPACE}/susfs-lineage-baseline.sha256"
-
-      - name: Upload baseline snapshot
+      - name: Upload baseline artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: susfs-lineage-baseline
+          name: full-kernel-baseline
           path: |
-            susfs-lineage-baseline.tar.gz
-            susfs-lineage-baseline.sha256
+            baseline/full-kernel-source.tar.gz
+            baseline/metadata-and-sukisu.tar.gz
+            baseline/SHA256SUMS
           if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
