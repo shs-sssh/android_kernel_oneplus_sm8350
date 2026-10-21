@@ -35,12 +35,48 @@ jobs:
           path: SukiSU-Ultra
           fetch-depth: 1
 
-      - name: Integrate SukiSU
+      - name: Integrate SukiSU builtin-new
         shell: bash
         run: |
           set -euo pipefail
-          cd "$GITHUB_WORKSPACE/kernel_source"
-          bash "$GITHUB_WORKSPACE/SukiSU-Ultra/kernel/setup.sh"
+
+          KERNEL="$GITHUB_WORKSPACE/kernel_source"
+          SUKISU="$GITHUB_WORKSPACE/SukiSU-Ultra"
+          DEST="$KERNEL/KernelSU"
+
+          test -d "$KERNEL/drivers"
+          test -f "$SUKISU/kernel/Kconfig"
+          test -f "$KERNEL/drivers/Makefile"
+          test -f "$KERNEL/drivers/Kconfig"
+
+          # Preserve the checked-out SukiSU revision; do not let setup.sh
+          # switch branches or pull a different revision.
+          rm -rf "$DEST"
+          cp -a "$SUKISU" "$DEST"
+
+          # Create the expected KernelSU integration link.
+          rm -rf "$KERNEL/drivers/kernelsu"
+          ln -s ../KernelSU/kernel "$KERNEL/drivers/kernelsu"
+
+          # Add Kbuild and Kconfig entries only when missing.
+          grep -Fq 'obj-$(CONFIG_KSU) += kernelsu/' \
+            "$KERNEL/drivers/Makefile" ||
+            printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' \
+              >> "$KERNEL/drivers/Makefile"
+
+          grep -Fq 'source "drivers/kernelsu/Kconfig"' \
+            "$KERNEL/drivers/Kconfig" ||
+            sed -i '/^endmenu/i source "drivers/kernelsu/Kconfig"' \
+              "$KERNEL/drivers/Kconfig"
+
+          # Verify that the link resolves inside the captured source tree.
+          test -f "$KERNEL/drivers/kernelsu/Kconfig"
+          test -f "$KERNEL/KernelSU/kernel/setup.sh"
+
+          echo "SukiSU source commit:"
+          git -C "$SUKISU" rev-parse HEAD
+          echo "Integrated kernel path:"
+          readlink -f "$KERNEL/drivers/kernelsu"
 
       - name: Capture complete source tree and metadata
         shell: bash
